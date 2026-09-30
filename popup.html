@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en" class="popup-root">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Focus Guard</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="popup-page">
+  <main class="shell popup-shell">
+    <header class="masthead"><span class="sun-mark" aria-hidden="true">✦</span><div><p class="eyebrow">FOCUS GUARD</p><h1>Make room for today.</h1></div></header>
+    <div id="message" class="notice" role="status" aria-live="polite" hidden></div>
+    <section id="onboarding" class="panel" hidden>
+      <p class="eyebrow">YOUR DAILY MAP</p><h2>What matters today?</h2>
+      <p class="subcopy">Choose up to 3 goals. Keep them clear and kind.</p>
+      <form id="goal-form">
+        <label class="field-label" for="goal-1">Goal 1 <span>required</span></label><input id="goal-1" name="goal-1" maxlength="200" autocomplete="off" placeholder="Finish the first draft">
+        <label class="field-label" for="goal-2">Goal 2 <span>optional</span></label><input id="goal-2" name="goal-2" maxlength="200" autocomplete="off" placeholder="Take a walk at lunch">
+        <label class="field-label" for="goal-3">Goal 3 <span>optional</span></label><input id="goal-3" name="goal-3" maxlength="200" autocomplete="off" placeholder="Read for 20 minutes">
+        <button class="button primary full" type="submit">Start My Day <span aria-hidden="true">→</span></button>
+      </form>
+    </section>
+    <section id="home" hidden>
+      <div class="date-line"><span class="eyebrow">TODAY</span><span id="today-date"></span></div>
+      <section class="panel goals-panel"><div class="section-heading"><div><p class="eyebrow">YOUR GOALS</p><h2>Small steps count.</h2></div><button id="edit-goals" class="text-button" type="button">Edit</button></div><div id="goal-list" class="goal-list"></div><p id="goals-complete" class="goals-complete" hidden><span aria-hidden="true">★</span> All goals completed!</p>
+        <form id="edit-form" hidden><p class="subcopy">Update your goals for today.</p><div id="edit-fields"></div><div class="button-row"><button class="button primary" type="submit">Save goals</button><button id="cancel-edit" class="button secondary" type="button">Cancel</button></div></form>
+      </section>
+      <div class="stat-grid"><article class="stat-card focus-stat"><span class="stat-icon focus-icon" aria-hidden="true">■</span><span class="eyebrow">FOCUS</span><strong><span id="focus-count">0</span> blocks · <span id="focus-minutes">0</span> min</strong></article><article class="stat-card distract-stat"><span class="stat-icon distraction-icon" aria-hidden="true">■</span><span class="eyebrow">DISTRACTION</span><strong><span id="distraction-count">0</span> blocks · <span id="distraction-minutes">0</span> min</strong></article></div>
+      <section class="focus-panel panel"><div class="focus-copy"><p id="focus-caption" class="eyebrow">READY WHEN YOU ARE</p><div id="focus-live" hidden><div id="focus-timer" class="timer" aria-label="Focus session time">0:00:00</div><div class="progress-track" role="progressbar" aria-label="Progress to next 10 minute block" aria-valuemin="0" aria-valuemax="600"><span id="focus-progress"></span></div><p id="block-remaining" class="subcopy"></p></div></div><button id="focus-action" class="button primary focus-button" type="button">Start Focus <span aria-hidden="true">▶</span></button></section>
+      <nav class="quick-links" aria-label="More"><a href="dashboard.html#summary" data-page="dashboard.html#summary">Summary <span>↗</span></a><a href="dashboard.html#history" data-page="dashboard.html#history">History <span>↗</span></a><a href="dashboard.html#settings" data-page="dashboard.html#settings">Settings <span>↗</span></a></nav>
+    </section>
+    <footer class="ground" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></footer>
+  </main>
+  <script src="popup.js"></script>
+</body>
+</html>

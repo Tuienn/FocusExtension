@@ -1,0 +1,23 @@
+/* Registered at document_start so the page is covered before it can be used. */
+html:not([data-fg-unlocked]) body,
+html:not([data-fg-unlocked]) body * {
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+/* Content scripts mount this directly below <html>; restore visibility even
+   though the site's body remains hidden beneath the guard. */
+html > #focus-guard-host {
+  all: initial !important;
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 2147483647 !important;
+  display: block !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  contain: strict !important;
+  isolation: isolate !important;
+}

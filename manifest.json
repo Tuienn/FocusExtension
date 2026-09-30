@@ -1,0 +1,14 @@
+{
+  "manifest_version": 3,
+  "name": "Focus Guard",
+  "description": "Daily goals, focus blocks, and a thoughtful pause before distractions. Everything stays on your device.",
+  "version": "1.0.0",
+  "minimum_chrome_version": "120",
+  "permissions": ["storage", "tabs", "idle", "alarms", "scripting"],
+  "host_permissions": ["http://*/*", "https://*/*"],
+  "background": { "service_worker": "background.js", "type": "module" },
+  "action": { "default_popup": "popup.html", "default_title": "Focus Guard", "default_icon": { "16": "assets/icon16.png", "32": "assets/icon32.png" } },
+  "icons": { "16": "assets/icon16.png", "32": "assets/icon32.png", "48": "assets/icon48.png", "128": "assets/icon128.png" },
+  "web_accessible_resources": [{ "resources": ["assets/pixel.woff"], "matches": ["http://*/*", "https://*/*"] }],
+  "content_security_policy": { "extension_pages": "script-src 'self'; object-src 'self'; base-uri 'self'" }
+}
