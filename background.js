@@ -6,6 +6,8 @@ import {
 const DATA_KEY = 'data';
 const RUNTIME_KEY = 'runtime';
 const SCRIPT_ID = 'fg-sites';
+const NEW_TAB_URL = chrome.runtime.getURL('').startsWith('moz-extension:')
+  ? 'about:newtab' : 'chrome://newtab/';
 const queue = (() => {
   let tail = Promise.resolve();
   return (work) => {
@@ -517,7 +519,7 @@ async function handleGuard(message, sender) {
         state.startedAt = 0;
       }
       state.stage = 'back';
-      const backUrl = runtime.safeUrls[key] || 'chrome://newtab/';
+      const backUrl = runtime.safeUrls[key] || NEW_TAB_URL;
       await persist();
       await sendTab(tab.id, { type: 'GUARD_CHANGED' });
       try { await chrome.tabs.update(tab.id, { url: backUrl }); }

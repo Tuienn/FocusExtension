@@ -1,4 +1,5 @@
 node_modules/
 coverage/
 *.zip
+output/
 .DS_Store

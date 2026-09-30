@@ -3,5 +3,5 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "scripts": { "test": "node --test --test-isolation=none tests/*.test.js", "check": "node scripts/check.mjs", "test:browser": "node scripts/browser-smoke.mjs" }
+  "scripts": { "build": "python3 scripts/build.py", "test": "node --test --test-isolation=none tests/*.test.js", "check": "node scripts/check.mjs", "test:browser": "node scripts/browser-smoke.mjs" }
 }

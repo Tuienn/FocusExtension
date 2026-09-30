@@ -1,6 +1,6 @@
 # Focus Guard
 
-Extension Chrome nhẹ: goals mỗi ngày → thời gian focus → một nhịp dừng trước các site gây xao nhãng. HTML/CSS/JavaScript thuần, Manifest V3, không framework, không build, không dependency sản phẩm. UI tiếng Anh; dữ liệu chỉ lưu trên thiết bị.
+Extension Chrome/Edge/Firefox nhẹ: goals mỗi ngày → thời gian focus → một nhịp dừng trước các site gây xao nhãng. HTML/CSS/JavaScript thuần, Manifest V3, không framework, không bước biên dịch, không dependency sản phẩm. UI tiếng Anh; dữ liệu chỉ lưu trên thiết bị.
 
 ## Kết quả theo từng bước
 
@@ -23,6 +23,31 @@ Các bước đã tích hợp; không còn phần tính năng trong kế hoạch
 5. Nhập 1–3 goals rồi chọn **Start My Day**. Bấm **Start Focus** khi bắt đầu làm việc.
 
 Không cần `npm install`. Khi cập nhật mã, bấm **Reload** trên thẻ extension và reload các tab distraction đang mở. Chrome không cho content script chạy trên trang nội bộ như `chrome://…` hoặc Chrome Web Store.
+
+## Build cho Chrome, Edge và Firefox
+
+Dùng Python 3 (chỉ standard library), không cần cài dependency:
+
+```sh
+npm run build
+# Hoặc, không cần Node:
+python3 scripts/build.py
+```
+
+Mỗi lần build tạo đúng ba gói ZIP trong `output/`:
+
+- `focus-guard-chrome.zip`
+- `focus-guard-edge.zip`
+- `focus-guard-firefox.zip`
+
+ZIP chỉ chứa file runtime và assets/license; `manifest.json` nằm ngay ở gốc. Không đóng gói tests, scripts, tài liệu, Git hoặc thư mục output. Script thay thế ba gói của nó khi chạy lại; không xóa file khác trong output. Có thể chọn đích khác bằng `python3 scripts/build.py --output-dir /tmp/focus-guard-packages`.
+
+Chrome và Edge dùng chung manifest MV3/service worker (120+). Firefox dùng background scripts dạng ES module, bỏ `minimum_chrome_version` và thêm `browser_specific_settings.gecko`: ID cố định `focus-guard@focusguard.local`, Firefox desktop 140+, khai báo `data_collection_permissions.required: ["none"]`. Mã nguồn dùng chung; URL New Tab chọn theo trình duyệt. Giữ nguyên Gecko ID khi phát hành cập nhật; nếu đã có ID trên AMO, sửa ID trong script trước khi gửi.
+
+- **Chrome/Edge:** giải nén ZIP tương ứng, mở `chrome://extensions` hoặc `edge://extensions`, bật Developer mode và chọn Load unpacked vào thư mục vừa giải nén. ZIP cũng dùng để gửi lên Chrome Web Store/Edge Add-ons.
+- **Firefox:** giải nén ZIP Firefox, mở `about:debugging#/runtime/this-firefox`, chọn Load Temporary Add-on rồi chọn `manifest.json`. Bản tạm mất khi restart Firefox; cài lâu dài cần gói được Mozilla ký qua AMO. ZIP này là gói nguồn để gửi AMO, chưa phải XPI đã ký.
+
+Tham khảo: [background khác nhau giữa các trình duyệt](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/manifest.json/background), [port Chrome sang Edge](https://learn.microsoft.com/en-us/microsoft-edge/extensions/developer-guide/port-chrome-extension), [khai báo dữ liệu Firefox](https://extensionworkshop.com/documentation/develop/firefox-builtin-data-consent/).
 
 ## Cách dùng
 

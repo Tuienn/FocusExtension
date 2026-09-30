@@ -1,6 +1,7 @@
 # Các quyết định cho bản đầu
 
-- **Chrome desktop 120+, Manifest V3**, HTML/CSS/JavaScript thuần; không build và không dependency runtime. Node 24 dùng cho test, Python standard library dùng để tạo artwork.
+- **Chrome/Edge desktop 120+, Firefox desktop 140+, Manifest V3**, HTML/CSS/JavaScript thuần; không bước biên dịch và không dependency runtime; Python standard library đóng gói ba ZIP riêng. Node 24 dùng cho test, Python standard library dùng để tạo artwork.
+- **Build:** một codebase; Chrome/Edge giữ service worker, Firefox dùng background scripts ES module và Gecko ID cố định, khai báo không truyền dữ liệu. ZIP chứa allowlist file runtime; manifest nằm ở gốc. URL New Tab chọn theo scheme extension.
 - **Ngày địa phương**, tuần thứ Hai–Chủ nhật. Khoảng thời gian qua nửa đêm được chia vào từng ngày. Giữ history trên thiết bị; không tự xóa dữ liệu.
 - **Goals:** 1–3 dòng không rỗng khi lưu, tối đa 200 ký tự/dòng; trim đầu/cuối. Đổi nội dung goal đưa goal đó về chưa hoàn thành; nội dung giữ nguyên giữ tick. Chỉnh theo vị trí dòng; không có kéo/sắp xếp.
 - **Đơn vị thời gian:** lưu mili giây như cũ để giữ dữ liệu chính xác; UI hiển thị giờ thập phân cố định, tổng/history hai chữ số thập phân, bộ đếm site ba chữ số. Giữ timer session đến giây; bỏ block và tiến độ block.
