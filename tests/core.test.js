@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createData, getDay, dayKey, setGoals, toggleGoal, findSite, normalizeSites,
-  settle, buildSnapshot, BLOCK_MS } from '../core.js';
+  settle, buildSnapshot } from '../core.js';
 
 const date = () => new Date(2026, 8, 30, 10).getTime();
 function runtime(now, mode = { focus: true, visit: null }) { return { lastAt: now, mode }; }
@@ -39,11 +39,10 @@ test('focus carries leftover seconds between sessions with no rounding or duplic
   accrue(data, state, (5*60+39)*1000);
   settle(data, state, state.lastAt);
   assert.equal(getDay(data, date()).focusMs, 40*60*1000);
-  assert.equal(Math.floor(getDay(data, date()).focusMs/BLOCK_MS), 4);
   assert.equal(data.sessionFocusMs, 40*60*1000);
 });
 
-test('distraction 4+3+3 minutes across visits is one block and pauses focus', () => {
+test('distraction time accumulates across visits and pauses focus', () => {
   const data = createData(); data.focusRunning = true;
   const state = runtime(date());
   for (const [index, minutes] of [4,3,3].entries()) {
@@ -52,7 +51,7 @@ test('distraction 4+3+3 minutes across visits is one block and pauses focus', ()
     accrue(data, state, minutes*60_000);
   }
   const day = getDay(data, date());
-  assert.equal(day.distractionMs, BLOCK_MS);
+  assert.equal(day.distractionMs, 600_000);
   assert.equal(day.focusMs, 0);
   assert.equal(day.visits.length, 3);
   assert.equal(day.visits.reduce((sum,v) => sum+v.durationMs, 0), day.distractionMs);

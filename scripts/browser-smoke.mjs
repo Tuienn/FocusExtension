@@ -115,13 +115,52 @@ try {
   assert.equal(await evaluate(page,`getComputedStyle(document.getElementById('underlying')).visibility`),'visible');
   await evaluate(page,`document.getElementById('underlying').click()`);
   assert.equal(await evaluate(page,`window.clicked`),true);
-  // A tab switch must end the visit and reapply the gate on return.
-  await cdp('Page.bringToFront',{},ui);
-  await sleep(250);
-  await cdp('Page.bringToFront',{},page);
-  await until(()=>evaluate(page,`${shadow}.querySelector('h1')?.textContent==='NOT YET'`));
-  await evaluate(page,`${shadow}.querySelector('[data-action="back"]').click()`);
-  await until(async()=> (await cdp('Target.getTargets')).targetInfos.find(t=>t.targetId===pageId)?.url==='chrome://newtab/');
+  const timer=`document.getElementById('focus-guard-timer')?.shadowRoot`;
+  await until(()=>evaluate(page,`${timer}?.querySelector('strong')?.textContent.endsWith(' h')`));
+  assert.equal(await evaluate(page,`getComputedStyle(document.getElementById('focus-guard-timer')).pointerEvents`),'none','timer does not intercept page input');
+  // Advance only the isolated worker clock in safe accounting steps.
+  const workerSession=await attach(worker.targetId);
+  await evaluate(workerSession,`globalThis.smokeRealNow=Date.now;globalThis.smokeNow=Date.now();Date.now=()=>globalThis.smokeNow`);
+  for(let i=0;i<10;i++) {
+    await evaluate(workerSession,`globalThis.smokeNow+=30000`);
+    await send({type:'GET_STATE'});
+  }
+  await until(()=>evaluate(page,`${timer}?.querySelector('.reminder')?.hidden===false`));
+  assert.equal(await evaluate(page,`${timer}.querySelector('.reminder').textContent.includes('5 minutes')`),true);
+  assert.equal(await evaluate(page,`getComputedStyle(${timer}.querySelector('.label')).color`),'rgb(17, 17, 17)');
+  assert.equal(await evaluate(page,`getComputedStyle(${timer}.querySelector('.status')).color`),'rgb(17, 17, 17)');
+  assert.equal(await evaluate(page,`getComputedStyle(${timer}.querySelector('.wasted')).color`),'rgb(184, 46, 48)');
+  assert.equal(await evaluate(page,`getComputedStyle(${timer}.querySelector('.timer')).animationName`),'timer-float');
+  await cdp('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]},page);
+  assert.equal(await evaluate(page,`getComputedStyle(${timer}.querySelector('.timer')).animationName`),'none');
+  await cdp('Emulation.setEmulatedMedia',{features:[]},page);
+  await sleep(350);
+  await screenshot(page,'distraction-reminder.png');
+  const clickReminderButton=async selector=>{
+    const position=await evaluate(page,`(()=>{const r=${timer}.querySelector('${selector}').getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}})()`);
+    await cdp('Input.dispatchMouseEvent',{type:'mousePressed',...position,button:'left',clickCount:1},page);
+    await cdp('Input.dispatchMouseEvent',{type:'mouseReleased',...position,button:'left',clickCount:1},page);
+  };
+  await cdp('Page.reload',{},page);
+  await until(()=>evaluate(page,`document.documentElement.hasAttribute('data-fg-unlocked') && Boolean(${timer})`));
+  assert.equal(await evaluate(page,`${timer}.querySelector('.reminder').hidden`),true,'reload does not repeat reminder');
+  for(let i=0;i<10;i++) {
+    await evaluate(workerSession,`globalThis.smokeNow+=30000`);
+    await send({type:'GET_STATE'});
+  }
+  await until(()=>evaluate(page,`${timer}?.querySelector('.reminder')?.hidden===false`));
+  assert.equal(await evaluate(page,`${timer}.querySelector('.reminder').textContent.includes('10 minutes')`),true);
+  await clickReminderButton('.dismiss');
+  assert.equal(await evaluate(page,`${timer}.querySelector('.reminder').hidden`),true);
+  for(let i=0;i<10;i++) {
+    await evaluate(workerSession,`globalThis.smokeNow+=30000`);
+    await send({type:'GET_STATE'});
+  }
+  await until(()=>evaluate(page,`${timer}?.querySelector('.reminder')?.hidden===false`));
+  assert.equal(await evaluate(page,`${timer}.querySelector('.acknowledge').textContent`),'Back to focus');
+  await clickReminderButton('.acknowledge');
+  await until(async()=> !(await cdp('Target.getTargets')).targetInfos.some(t=>t.targetId===pageId));
+  await evaluate(workerSession,`Date.now=globalThis.smokeRealNow`);
   state=await send({type:'GET_STATE'});
   assert.equal(state.day.stopped,1);
   assert.equal(state.day.visits[0].reason,'Tìm tài liệu');
@@ -130,6 +169,8 @@ try {
   await cdp('Page.enable',{},dash);
   await cdp('Emulation.setDeviceMetricsOverride',{width:1024,height:900,deviceScaleFactor:1,mobile:false},dash);
   await until(()=>evaluate(dash,`document.querySelector('#summary-goals-list')?.textContent.includes('Học tiếng Việt')`));
+  assert.equal(await evaluate(dash,`document.querySelector('#focus-total').textContent.endsWith(' h')`),true);
+  assert.equal(await evaluate(dash,`document.querySelector('.stopped-count').textContent.includes('1 time')`),true);
   await evaluate(dash,'document.fonts.ready');
   assert.equal(await evaluate(dash,'window.scrollY'),0,'view navigation keeps the header visible');
   await screenshot(dash,'summary.png');

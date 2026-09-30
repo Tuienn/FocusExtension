@@ -102,7 +102,11 @@ function guardReply(tabId) {
     || { domain: state.site, label: state.site };
   const stage = state.stage === 'countdown' && Date.now() >= state.deadline
     ? 'ready' : state.stage;
-  return { stage, site, reason: state.reason || '', deadline: state.deadline || 0 };
+  const visitMs = state.visitId ? Object.values(data.days).reduce((total, day) =>
+    total + (day.visits.find(visit => visit.id === state.visitId)?.durationMs || 0), 0) : 0;
+  return { stage, site, reason: state.reason || '', deadline: state.deadline || 0,
+    visitId: state.visitId, visitMs, tracking: runtime.mode?.visit?.id === state.visitId && Boolean(state.visitId),
+    reminderCount: Math.floor(visitMs / 300_000), reminderShown: state.reminderShown || 0 };
 }
 
 function replyError(error) {
@@ -179,7 +183,7 @@ async function safeUrl(tab) {
 }
 
 function makeTabState(site, stage = 'reason') {
-  return { site, stage, reason: '', deadline: 0, visitId: null, startedAt: 0 };
+  return { site, stage, reason: '', deadline: 0, visitId: null, startedAt: 0, reminderShown: 0 };
 }
 
 async function reconcileTabs(inject = false) {
@@ -242,6 +246,7 @@ async function closeVisit(now = Date.now(), markStopped = false, preserve = fals
       tabState.startedAt = 0;
       tabState.reason = '';
       tabState.deadline = 0;
+      tabState.reminderShown = 0;
     }
   }
   for (const visitDay of Object.values(data.days)) {
@@ -326,6 +331,7 @@ async function syncForeground() {
     day.visits.push({ id, site, reason: '', startedAt: now, endedAt: null, durationMs: 0 });
     state.visitId = id;
     state.startedAt = now;
+    state.reminderShown = 0;
     runtime.mode.visit = { id, site, reason: '', startedAt: now, tabId: tab.id };
   }
   runtime.mode = {
@@ -436,6 +442,26 @@ async function handleGuard(message, sender) {
     case 'GUARD_STATE':
       await persist();
       return response({ guard: guardReply(tab.id) });
+    case 'GUARD_CLOSE': {
+      if (!['open', 'allow'].includes(state.stage) || !state.visitId || message.visitId !== state.visitId) {
+        return replyError('This visit is no longer available.');
+      }
+      // Close only the sender's verified distraction tab, never an arbitrary ID.
+      await chrome.tabs.remove(tab.id);
+      await closeStoredVisit(tab.id, now, true, false);
+      delete runtime.tabs[key];
+      await persist();
+      return response({ guard: null });
+    }
+    case 'GUARD_REMINDER_ACK': {
+      const guard = guardReply(tab.id);
+      if (message.visitId === state.visitId && Number.isInteger(message.count) &&
+          message.count > (state.reminderShown || 0) && message.count <= guard.reminderCount) {
+        state.reminderShown = message.count;
+      }
+      await persist();
+      return response({ guard: guardReply(tab.id) });
+    }
     case 'GUARD_REASON': {
       if (state.stage !== 'reason') return response({ guard: guardReply(tab.id) });
       if (typeof message.reason !== 'string') return replyError('Enter a reason before continuing');
@@ -461,6 +487,7 @@ async function handleGuard(message, sender) {
       state.stage = 'open';
       state.visitId = id;
       state.startedAt = now;
+      state.reminderShown = 0;
       runtime.mode.visit = { id, site, reason: state.reason || '', startedAt: now, tabId: tab.id };
       runtime.mode.focus = false;
       break;

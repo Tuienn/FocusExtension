@@ -1,5 +1,4 @@
 // Pure accounting: the worker is the only owner of persisted state.
-export const BLOCK_MS = 600_000;
 export const MAX_GAP_MS = 45_000;
 export const DEFAULT_SITES = [
   { domain: 'youtube.com', label: 'YouTube' },

@@ -6,9 +6,9 @@
   const send = (type, extra = {}) => new Promise((resolve) => chrome.runtime.sendMessage({ type, ...extra }, (response) => {
     if (chrome.runtime.lastError) return resolve({ ok: false, error: chrome.runtime.lastError.message }); resolve(response || { ok: false, error: 'No response from the focus service.' });
   }));
-  const safe = (n) => Math.max(0, Number(n) || 0), blocks = (ms) => Math.floor(safe(ms) / 600000), mins = (ms) => Math.floor(safe(ms) / 60000);
+  const safe = (n) => Math.max(0, Number(n) || 0), hours = (ms) => (safe(ms) / 3600000).toFixed(2);
   const dateTime = (ms) => new Date(ms).toLocaleTimeString('en', { hour: 'numeric', minute: '2-digit' });
-  const durationText = ms => { const seconds = Math.floor(safe(ms) / 1000); return `${Math.floor(seconds / 60)}m ${seconds % 60}s`; };
+  const durationText = (ms) => `${hours(ms)} h`;
   const setMessage = (text) => { message.textContent = text; message.hidden = !text; };
   function showSection() {
     const hash = location.hash.replace(/^#/, ''), selected = ['summary', 'history', 'settings'].includes(hash) ? hash : 'summary';
@@ -23,8 +23,8 @@
     week.forEach((day) => {
       const row = document.createElement('div'); row.className = 'week-row';
       const name = document.createElement('span'); name.className = 'week-day'; name.textContent = day.label || new Date(`${day.key}T12:00:00`).toLocaleDateString('en', { weekday: 'short' });
-      const focus = document.createElement('span'); focus.className = 'week-value'; const fi = document.createElement('i'); fi.className = 'block-icon focus-block'; fi.setAttribute('aria-hidden', 'true'); focus.append(fi, document.createTextNode(String(blocks(day.focusMs))));
-      const distraction = document.createElement('span'); distraction.className = 'week-value'; const di = document.createElement('i'); di.className = 'block-icon distraction-block'; di.setAttribute('aria-hidden', 'true'); distraction.append(di, document.createTextNode(String(blocks(day.distractionMs))));
+      const focus = document.createElement('span'); focus.className = 'week-value focus-hours'; focus.textContent = `${hours(day.focusMs)} h`;
+      const distraction = document.createElement('span'); distraction.className = 'week-value distraction-hours'; distraction.textContent = `${hours(day.distractionMs)} h`;
       row.append(name, focus, distraction); container.append(row);
     });
     if (!week.length) { const empty = document.createElement('p'); empty.className = 'empty-note'; empty.textContent = 'Your week will take shape as you focus.'; container.append(empty); }
@@ -32,7 +32,6 @@
   function renderHistory(day) {
     const visits = (day?.visits || []).slice().sort((a, b) => (b.startedAt || 0) - (a.startedAt || 0));
     const sig = JSON.stringify(visits.map((v) => [v.id, v.site, v.reason, v.startedAt, v.endedAt, v.durationMs]));
-    $('#stopped-count').textContent = `Focus Guard stopped you ${safe(day?.stopped)} times`;
     if (sig === signatures.history) return; signatures.history = sig;
     const container = $('#history-list'); container.replaceChildren();
     if (!visits.length) { const empty = document.createElement('div'); empty.className = 'history-empty'; const star = document.createElement('span'); star.setAttribute('aria-hidden', 'true'); star.textContent = '✦'; const title = document.createElement('p'); title.textContent = 'No distraction visits recorded today.'; const hint = document.createElement('small'); hint.textContent = 'Your log appears here when a guarded site is opened.'; empty.append(star, title, hint); container.append(empty); return; }
@@ -55,8 +54,8 @@
       if (!goals.length) { const empty = document.createElement('p'); empty.className = 'empty-note'; empty.textContent = 'No goals saved for today.'; list.append(empty); }
     }
     $('#goals-total').textContent = `${goals.filter((g) => g.done).length} / ${goals.length}`;
-    $('#focus-total').textContent = String(blocks(day.focusMs)); $('#focus-total-minutes').textContent = `${mins(day.focusMs)} minutes today`;
-    $('#distraction-total').textContent = String(blocks(day.distractionMs)); $('#distraction-total-minutes').textContent = `${mins(day.distractionMs)} minutes today`;
+    $('#focus-total').textContent = `${hours(day.focusMs)} h`;
+    $('#distraction-total').textContent = `${hours(day.distractionMs)} h`;
   }
   function renderSites(settings, force = false) {
     const sig = JSON.stringify(settings || {}); if (!force && sig === signatures.settings) return; signatures.settings = sig;
@@ -85,6 +84,8 @@
     setMessage(''); latest = state; const day = state.day || {};
     $('#dash-date').textContent = new Date().toLocaleDateString('en', { weekday: 'long', month: 'long', day: 'numeric' });
     renderSummary(day); renderWeek(state.week || []); renderHistory(day);
+    const stopped = safe(day.stopped);
+    $('#stopped-count').textContent = `Focus Guard stopped you ${stopped} ${stopped === 1 ? 'time' : 'times'}`;
     if (!settingsBusy) renderSites(state.settings || { sites: [], afterGoals: 'allow' });
   }
   function normalizeDomain(raw) {

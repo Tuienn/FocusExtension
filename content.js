@@ -22,6 +22,11 @@
   let savedFocus = null;
   let lastCountdownRefresh = 0;
   let renderedSignature = '';
+  let timerHost;
+  let timerShadow;
+  let reminderTimeout;
+  let lastReminder = '';
+  let timerVisitId = null;
 
   const escapeHandler = (event) => {
     if (!host || !host.isConnected || !shadow) return;
@@ -81,7 +86,7 @@
       host.addEventListener('keyup', (event) => event.stopPropagation());
       host.addEventListener('keypress', (event) => event.stopPropagation());
     }
-    if (host.parentNode !== root) root.append(host);
+    if (host.parentNode !== root) root.insertBefore(host, timerHost?.parentNode === root ? timerHost : null);
     return true;
   }
 
@@ -142,8 +147,7 @@
     return escText(value).replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]);
   }
   function formatTime(ms) {
-    const total = Math.max(0, Math.floor((Number(ms) || 0) / 1000));
-    return `${Math.floor(total / 60)} min`;
+    return `${(Math.max(0, Number(ms) || 0) / 3600000).toFixed(2)} hours`;
   }
   function doneCount(goals) { return goals.filter((goal) => goal && goal.done).length; }
   function goalSection(day) {
@@ -154,8 +158,7 @@
     return `<section class="goals"><div class="goal-heading"><span>Today's goals</span><span>${completed}/${goals.length} done</span></div>${goals.length ? `<ul class="goal-list">${rows || '<li class="muted">Everything is complete.</li>'}</ul>` : '<p class="muted">What matters today? Open Focus Guard to set your goals.</p>'}</section>`;
   }
   function stats(day) {
-    const blocks = Math.floor(Math.max(0, Number(day && day.focusMs) || 0) / 600000);
-    return `<div class="stats"><span data-stat="focus">Focus ${blocks} blocks · ${formatTime(day && day.focusMs)}</span><span data-stat="distraction">Distraction ${formatTime(day && day.distractionMs)}</span></div>`;
+    return `<div class="stats"><span data-stat="focus">Focus ${formatTime(day && day.focusMs)}</span><span data-stat="distraction">Distraction ${formatTime(day && day.distractionMs)}</span></div>`;
   }
   function updateStats() {
     const node = app();
@@ -163,7 +166,7 @@
     const day = current && current.day || {};
     const focus = node.querySelector('[data-stat="focus"]');
     const distraction = node.querySelector('[data-stat="distraction"]');
-    if (focus) focus.textContent = `Focus ${Math.floor(Math.max(0, Number(day.focusMs) || 0) / 600000)} blocks · ${formatTime(day.focusMs)}`;
+    if (focus) focus.textContent = `Focus ${formatTime(day.focusMs)}`;
     if (distraction) distraction.textContent = `Distraction ${formatTime(day.distractionMs)}`;
   }
   function signature(response) {
@@ -291,11 +294,84 @@
     }
   }
 
+  function updateSiteTimer(response) {
+    const guard = response.guard;
+    if (!guard?.site) {
+      timerHost?.remove();
+      window.clearTimeout(reminderTimeout);
+      return;
+    }
+    if (!timerHost) {
+      timerHost = document.createElement('div');
+      timerHost.id = 'focus-guard-timer';
+      // Keep the host isolated from site CSS and outside the hidden body.
+      timerHost.style.cssText = 'all:initial!important;position:fixed!important;inset:auto 16px 16px auto!important;display:block!important;width:220px!important;height:auto!important;z-index:2147483647!important;visibility:visible!important;opacity:1!important;pointer-events:none!important;isolation:isolate!important;';
+      timerShadow = timerHost.attachShadow({ mode: 'open' });
+      timerShadow.innerHTML = `<style>
+        *{box-sizing:border-box} :host{font-family:ui-monospace,Consolas,monospace;color:#142c4c}
+        .timer{color:#111;padding:11px 13px;background:#ffca62;border:3px solid #142c4c;box-shadow:4px 4px 0 #142c4c;font:12px/1.5 ui-monospace,Consolas,monospace;animation:timer-float 3s ease-in-out infinite}
+        .label{display:flex;align-items:center;gap:7px;font-size:10px;font-weight:800;letter-spacing:.06em}
+        .dot{width:8px;height:8px;background:#b82e30;border-radius:50%;animation:beacon 2s ease-in-out infinite}
+        strong{display:block;color:#b82e30;font-size:24px;font-variant-numeric:tabular-nums;line-height:1.4}
+        .status{font-size:10px}.track{height:4px;margin-top:8px;background:#fff4d6}.fill{height:100%;background:#b82e30;transition:width 1s linear}
+        .reminder{color:#111;position:absolute;bottom:100%;right:0;width:min(250px,calc(100vw - 32px));margin-bottom:16px;padding:13px;background:#fff9e8;border:3px solid #b82e30;box-shadow:4px 4px 0 #142c4c;pointer-events:auto;font:13px/1.5 ui-monospace,Consolas,monospace;animation:arrive .3s ease-out}
+        .reminder p{margin:0 0 10px}.reminder button{border:2px solid #142c4c;padding:6px 10px;background:#ffca62;color:#142c4c;font:700 11px ui-monospace,Consolas,monospace;cursor:pointer}.reminder button:focus-visible{outline:3px solid #b82e30;outline-offset:3px}
+        .wasted{color:#b82e30;font-size:18px;font-weight:800}.reminder-actions{display:flex;gap:8px}.reminder .dismiss{background:transparent}.reminder button:hover{background:#ffe4ad}.reminder button:active{transform:translateY(2px)}.reminder button:disabled{cursor:default;background:#e8f6e9;color:#307147}
+        [hidden]{display:none!important}@keyframes timer-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}@keyframes beacon{50%{box-shadow:0 0 0 5px #b82e3030}}@keyframes arrive{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+        @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+      </style><aside class="reminder" role="status" aria-live="polite" hidden><p><span class="wasted"></span><br><span class="reminder-copy">Back to your goals?</span></p><div class="reminder-actions"><button class="acknowledge" type="button" title="Close this distraction tab">Back to focus</button><button class="dismiss" type="button">Dismiss</button></div></aside><aside class="timer" aria-label="Distraction time today"><div class="label"><span class="dot" aria-hidden="true"></span>DISTRACTION · TODAY</div><strong></strong><div class="status"></div><div class="track" aria-hidden="true"><div class="fill"></div></div></aside>`;
+      const closeReminder = () => {
+        window.clearTimeout(reminderTimeout);
+        timerShadow.querySelector('.reminder').hidden = true;
+      };
+      timerShadow.querySelector('.dismiss').addEventListener('click', closeReminder);
+      timerShadow.querySelector('.acknowledge').addEventListener('click', async (event) => {
+        window.clearTimeout(reminderTimeout);
+        const button = event.currentTarget;
+        button.textContent = 'Closing…';
+        button.disabled = true;
+        try {
+          const response = await send({ type: 'GUARD_CLOSE', visitId: timerVisitId });
+          if (!response?.ok) throw new Error(response?.error || 'Could not close this tab.');
+          closeReminder();
+        } catch (error) {
+          button.textContent = 'Back to focus';
+          button.disabled = false;
+          timerShadow.querySelector('.reminder-copy').textContent = error.message || 'Could not close this tab. Try again.';
+        }
+      });
+    }
+    if (!timerHost.isConnected) document.documentElement.append(timerHost);
+    if (timerVisitId !== guard.visitId || !guard.tracking) {
+      timerShadow.querySelector('.reminder').hidden = true;
+      window.clearTimeout(reminderTimeout);
+    }
+    timerVisitId = guard.visitId;
+    timerShadow.querySelector('strong').textContent = `${(Math.max(0, response.day?.distractionMs || 0) / 3600000).toFixed(3)} h`;
+    timerShadow.querySelector('.status').textContent = guard.tracking ? 'Tracking · reminder every 5 min' : ['open', 'allow'].includes(guard.stage) ? 'Paused · reminder every 5 min' : 'Waiting for this visit to open';
+    timerShadow.querySelector('.fill').style.width = `${((guard.visitMs || 0) % 300000) / 3000}%`;
+    const reminderKey = `${guard.visitId}:${guard.reminderCount}`;
+    if (guard.tracking && guard.reminderCount > guard.reminderShown && lastReminder !== reminderKey) {
+      lastReminder = reminderKey;
+      const reminder = timerShadow.querySelector('.reminder');
+      reminder.querySelector('.wasted').textContent = `${guard.reminderCount * 5} minutes wasted`;
+      reminder.querySelector('.reminder-copy').textContent = 'Back to your goals?';
+      const acknowledge = reminder.querySelector('.acknowledge');
+      acknowledge.textContent = 'Back to focus';
+      acknowledge.disabled = false;
+      reminder.hidden = false;
+      window.clearTimeout(reminderTimeout);
+      reminderTimeout = window.setTimeout(() => { reminder.hidden = true; }, 20000);
+      send({ type: 'GUARD_REMINDER_ACK', visitId: guard.visitId, count: guard.reminderCount }).catch(() => { lastReminder = ''; });
+    }
+  }
+
   async function refresh(preserveDraft = true) {
     const priorDraft = draft;
     try {
       const response = await send({ type: 'GUARD_STATE' });
       if (!response || response.ok !== true) throw new Error(response && response.error || 'Unable to read Focus Guard state.');
+      updateSiteTimer(response);
       if (!response.guard || response.guard.stage === 'allow' || !response.guard.site) {
         setLocked(false);
         renderedSignature = '';
@@ -338,6 +414,7 @@
         return;
       }
       if (type === 'GUARD_OPEN') {
+        updateSiteTimer(response);
         if (response.guard && (response.guard.stage === 'open' || response.guard.stage === 'allow' || !response.guard.site)) {
           setLocked(false);
           renderedSignature = '';

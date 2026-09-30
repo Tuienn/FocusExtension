@@ -1,18 +1,18 @@
 # Focus Guard
 
-Extension Chrome nhẹ: goals mỗi ngày → Focus Blocks → một nhịp dừng trước các site gây xao nhãng. HTML/CSS/JavaScript thuần, Manifest V3, không framework, không build, không dependency sản phẩm. UI tiếng Anh; dữ liệu chỉ lưu trên thiết bị.
+Extension Chrome nhẹ: goals mỗi ngày → thời gian focus → một nhịp dừng trước các site gây xao nhãng. HTML/CSS/JavaScript thuần, Manifest V3, không framework, không build, không dependency sản phẩm. UI tiếng Anh; dữ liệu chỉ lưu trên thiết bị.
 
 ## Kết quả theo từng bước
 
 1. **Goals + popup:** đã có onboarding, tick/untick, Edit và Unicode. Thử bằng nhập goal tiếng Việt rồi tick/sửa.
-2. **Focus:** đã có Start/Stop, timer, tiến độ block và phút lẻ. Thử đóng popup khi đang chạy, sau đó mở lại và Stop/Start.
+2. **Focus:** đã có Start/Stop, timer, tổng giờ và timer session. Thử đóng popup khi đang chạy, sau đó mở lại và Stop/Start.
 3. **Blocker:** đã có reason, countdown 30 giây bền qua reload, manual Open và Back. Thử reason rỗng và refresh trong lúc chờ.
 4. **Distraction:** đã theo dõi active foreground/idle, tạm dừng focus và kết thúc lượt khi rời tab/app. Thử đổi tab và xem log.
-5. **Summary/history:** đã có goals/totals/stopped, tuần thứ Hai–Chủ nhật và log lý do/thời lượng đến giây. So sánh số liệu với popup.
+5. **Summary/history:** đã có goals/totals/stopped, tuần thứ Hai–Chủ nhật và log lý do/thời lượng theo giờ. So sánh số liệu với popup.
 6. **Settings:** đã có thêm/xóa domain và hai lựa chọn sau khi hoàn thành goals. Thử thêm URL, subdomain, tick toàn bộ rồi untick.
 7. **Polish:** đã có font/icon gốc cục bộ, pressed states, keyboard focus, README và DECISIONS. Kiểm tra giao diện và cài Load unpacked.
 
-Các bước đã tích hợp; không còn phần tính năng trong kế hoạch chưa triển khai. Kiểm thử tự động gồm 8 bài logic/worker và smoke test Chromium trên site fixture cục bộ. Việc còn cần kiểm tra thủ công trước phát hành rộng là CSS/navigation của sáu site thật và idle/lock/sleep trên từng hệ điều hành.
+Các bước đã tích hợp; không còn phần tính năng trong kế hoạch chưa triển khai. Kiểm thử tự động gồm các bài logic/worker và smoke test Chromium trên site fixture cục bộ. Việc còn cần kiểm tra thủ công trước phát hành rộng là CSS/navigation của sáu site thật và idle/lock/sleep trên từng hệ điều hành.
 
 ## Cài trên Chrome
 
@@ -27,18 +27,19 @@ Không cần `npm install`. Khi cập nhật mã, bấm **Reload** trên thẻ e
 ## Cách dùng
 
 - Tick/untick goals; **Edit** để sửa. Ngày mới theo đồng hồ địa phương bắt đầu với goals trống.
-- Mỗi 10 phút focus tích lũy trong ngày thành một block vàng. **Stop** kết thúc session; phút lẻ vẫn được giữ trong tổng ngày.
+- Focus và distraction hiển thị cố định bằng giờ thập phân (h). **Stop** kết thúc session; toàn bộ thời gian vẫn được giữ trong tổng ngày.
 - YouTube, Facebook, Reddit, TikTok, Instagram và X mặc định có blocker. Subdomain cũng được tính.
 - Nhập lý do → chờ 30 giây → tự bấm **Open**. Reload không reset countdown. **Back to focus** đưa về trang an toàn gần nhất đã ghi nhận hoặc New Tab.
-- Chỉ sau Open mới tính distraction, khi tab active, Chrome foreground và máy chưa idle. Mỗi 10 phút tích lũy thành một block đỏ.
+- Chỉ sau Open mới tính distraction, khi tab active, Chrome foreground và máy chưa idle. Bộ đếm nhỏ trong Shadow DOM luôn hiển thị ở góc dưới phải trên các site distraction, kể cả khi goals đã hoàn thành.
+- Sau mỗi 5 phút active trong một lượt, hiện lời nhắc trên trang trong 20 giây (**Back to focus** đóng tab distraction hiện tại; **Dismiss** đóng ngay). Reload giữ thời gian và không lặp lại mốc đã nhắc; idle không cộng vào mốc nhắc. Thời gian được tô đỏ; bộ đếm chuyển động lên xuống nhẹ. Animation tôn trọng reduced motion.
 - Sau Open, chuyển tab hoặc chuyển sang ứng dụng khác kết thúc lượt. Quay lại phải nhập lý do và chờ lại. Idle chỉ tạm dừng lượt.
-- **Summary** có goals, tổng blocks/phút, số lần quay về focus và tuần hiện tại. **History** có distraction log hôm nay.
+- **Summary** có goals, tổng giờ, số lần quay về focus và tuần hiện tại. **History** có distraction log hôm nay.
 - **Settings** thêm/xóa domain và chọn hành vi sau khi hoàn thành toàn bộ goals. Mặc định bỏ blocker nhưng vẫn tính distraction.
 
 ## Thử bằng tay
 
 1. Nhập goal tiếng Việt, tick/untick, sửa; kiểm tra Summary khớp.
-2. Start Focus, đóng popup, mở lại sau một phút. Timer và tổng ngày phải tiếp tục. Stop/Start không xóa phút lẻ.
+2. Start Focus, đóng popup, mở lại sau một phút. Timer và tổng ngày phải tiếp tục. Stop/Start không xóa thời gian đã tích lũy.
 3. Mở YouTube: trang bên dưới không thao tác được. Continue với lý do rỗng phải hiện lỗi. Nhập lý do và reload trong countdown; thời gian còn lại phải tiếp tục.
 4. Chờ READY: trang vẫn bị che đến khi tự bấm Open. Thử Back ở bước reason, countdown và ready; Summary tăng đúng một lần.
 5. Sau Open, chuyển tab rồi quay lại: blocker xuất hiện lại. Chuyển sang Reddit cần lý do mới. Refresh trong cùng site giữ lượt hiện tại.

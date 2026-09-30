@@ -7,9 +7,8 @@
     resolve(response || { ok: false, error: 'No response from the focus service.' });
   }));
   const showError = (text = '') => { message.textContent = text; message.hidden = !text; };
-  const blocks = (ms) => Math.floor(Math.max(0, Number(ms) || 0) / 600000);
+  const hours = (ms) => `${(Math.max(0, Number(ms) || 0) / 3600000).toFixed(2)} h`;
   const formatTime = (ms) => { const s = Math.floor(Math.max(0, ms) / 1000); return `${Math.floor(s / 3600)}:${String(Math.floor(s / 60) % 60).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`; };
-  const formatShort = (seconds) => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
   const render = async () => {
     const state = await send('GET_STATE');
     if (!state?.ok) { if (message.hidden) showError(state?.error || 'Could not load today. Try reopening the popup.'); return; }
@@ -22,19 +21,14 @@
     }
     $('#today-date').textContent = new Date().toLocaleDateString('en', { weekday: 'short', month: 'short', day: 'numeric' });
     if (!editing) renderGoals(currentDay.goals || []);
-    $('#focus-count').textContent = blocks(currentDay.focusMs);
-    $('#focus-minutes').textContent = Math.floor(Math.max(0, currentDay.focusMs || 0) / 60000);
-    $('#distraction-count').textContent = blocks(currentDay.distractionMs);
-    $('#distraction-minutes').textContent = Math.floor(Math.max(0, currentDay.distractionMs || 0) / 60000);
+    $('#focus-hours').textContent = hours(currentDay.focusMs);
+    $('#distraction-hours').textContent = hours(currentDay.distractionMs);
     const goals = currentDay.goals || [], allDone = goals.length > 0 && goals.every((goal) => goal.done);
     $('#goals-complete').hidden = !allDone;
     const running = !!state.focusRunning, live = $('#focus-live'); live.hidden = !running;
     if (running) {
-      const ms = Math.max(0, Number(state.sessionFocusMs) || 0), remainder = Math.floor((currentDay.focusMs || 0) / 1000) % 600;
-      const left = 600 - remainder; $('#focus-timer').textContent = formatTime(ms);
-      $('#focus-progress').style.width = `${(remainder / 600) * 100}%`;
-      $('.progress-track').setAttribute('aria-valuenow', String(remainder));
-      $('#block-remaining').textContent = `${formatShort(left)} to next block`;
+      const ms = Math.max(0, Number(state.sessionFocusMs) || 0);
+      $('#focus-timer').textContent = formatTime(ms);
     }
     $('#focus-caption').textContent = state.focusPaused ? 'FOCUS PAUSED' : running ? 'FOCUS SESSION IN PROGRESS' : 'READY WHEN YOU ARE';
     const action = $('#focus-action'); action.innerHTML = running ? 'Stop <span aria-hidden="true">■</span>' : 'Start Focus <span aria-hidden="true">▶</span>';

@@ -40,6 +40,7 @@ test('worker integrates foreground, guard, persistence, idle, daily rollover and
       get:(id, callback) => callback(tabs.get(id)),
       sendMessage:(id,message,callback) => { notices.push({id,...message}); callback?.(); },
       update:async (id,changes) => { Object.assign(tabs.get(id),changes); chrome.tabs.onUpdated.emit(id,changes,tabs.get(id)); return tabs.get(id); },
+      remove:async id => { tabs.delete(id); chrome.tabs.onRemoved.emit(id); },
     },
     windows:{WINDOW_ID_NONE:-1,onFocusChanged:new Event(),
       get:(id,callback) => callback({id,focused:id===focusedWindow}),
@@ -98,6 +99,23 @@ test('worker integrates foreground, guard, persistence, idle, daily rollover and
     state=await send({type:'GET_STATE'});
     assert.equal(state.day.distractionMs,30_000);
     assert.equal(state.day.focusMs,30_000);
+    for (let i = 0; i < 9; i++) await tick(30_000);
+    guard = await send({type:'GUARD_STATE'},2);
+    assert.equal(guard.guard.visitMs,300_000);
+    assert.equal(guard.guard.reminderCount,1,'first reminder is due after five active minutes');
+    assert.equal(guard.guard.reminderShown,0);
+    await send({type:'GUARD_REMINDER_ACK',visitId:'wrong',count:1},2);
+    assert.equal((await send({type:'GUARD_STATE'},2)).guard.reminderShown,0);
+    await send({type:'GUARD_REMINDER_ACK',visitId:guard.guard.visitId,count:2},2);
+    assert.equal((await send({type:'GUARD_STATE'},2)).guard.reminderShown,0,'future reminders cannot be acknowledged');
+    await send({type:'GUARD_REMINDER_ACK',visitId:guard.guard.visitId,count:1},2);
+    assert.equal((await send({type:'GUARD_STATE'},2)).guard.reminderShown,1,'reload does not repeat an acknowledged reminder');
+    idleState='idle'; chrome.idle.onStateChanged.emit('idle'); await turn();
+    for (let i = 0; i < 10; i++) await tick(30_000);
+    assert.equal((await send({type:'GUARD_STATE'},2)).guard.visitMs,300_000,'idle does not advance reminders');
+    idleState='active'; chrome.idle.onStateChanged.emit('active'); await turn();
+    for (let i = 0; i < 10; i++) await tick(30_000);
+    assert.equal((await send({type:'GUARD_STATE'},2)).guard.reminderCount,2,'next reminder at ten active minutes');
     await activate(1);
     assert.equal((await send({type:'GUARD_STATE'},2)).guard.stage,'reason');
     assert.equal((await send({type:'GET_STATE'})).day.visits[0].endedAt,clock);
@@ -115,6 +133,7 @@ test('worker integrates foreground, guard, persistence, idle, daily rollover and
     await activate(2);
     guard=await send({type:'GUARD_REASON',reason:'One video'},2);
     await tick(30_000); await send({type:'GUARD_OPEN'},2);
+    assert.equal((await send({type:'GUARD_STATE'},2)).guard.reminderShown,0,'new visit resets reminders');
     await foreground(null);
     await foreground(1);
     assert.equal((await send({type:'GUARD_STATE'},2)).guard.stage,'reason','returning from another app reblocks');
@@ -192,5 +211,17 @@ test('worker integrates foreground, guard, persistence, idle, daily rollover and
     state=await send({type:'GET_STATE'});
     assert.equal(state.focusRunning,false);
     assert.equal(state.day.focusMs,beforeRestart+5_000,'browser closed time never counted');
+    await activate(3);
+    await send({type:'GUARD_REASON',reason:'One last look'},3);
+    await tick(30_000);
+    guard = await send({type:'GUARD_OPEN'},3);
+    assert.equal((await send({type:'GUARD_CLOSE',visitId:'wrong'},3)).ok,false);
+    assert.equal(tabs.has(3),true,'invalid visit cannot close a tab');
+    const stoppedBefore = guard.day.stopped;
+    assert.equal((await send({type:'GUARD_CLOSE',visitId:guard.guard.visitId},3)).ok,true);
+    await turn();
+    assert.equal(tabs.has(3),false,'Back to focus closes the sending distraction tab');
+    assert.equal(tabs.has(1),true,'other tabs remain open');
+    assert.equal((await send({type:'GET_STATE'})).day.stopped,stoppedBefore+1);
   } finally { globalThis.Date=RealDate; delete globalThis.chrome; }
 });
